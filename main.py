@@ -83,8 +83,29 @@ def train_model(batch_size, gamma=0.9):
         param.grad.data.clamp_(-1, 1)
     optimizer.step()
 
+def eval_model():
+    """ Evaluate the target model """
+    print("Evaluating model...")
+    eval_done = False
+    obs = env.reset()
+    cum_reward = 0.0
+    while not eval_done:
+        # We don't use select model because we want to follow policy greedily with target_model
+        with torch.no_grad():
+            obs_tensor = numpy_to_tensor(obs)
+            q_val = target_model(obs_tensor.to(device))
+            action = torch.argmax(q_val).item()
+        
+        _, reward, eval_done, _ = env.step(action)
+
+        cum_reward += reward
+
+    return cum_reward
+
+
 # To Do: Write the training loop and figure out the sample efficiencies
 num_episodes = 50
+cum_samples = 0
 for episode in tqdm(range(num_episodes)):
     obs = env.reset()
 
@@ -95,16 +116,21 @@ for episode in tqdm(range(num_episodes)):
 
         buffer.push(obs, action, obs_prime, reward)
 
-        # Train the model
+        # Train the model with batch size
+        # Higher batch size may cause cuda OOM
         train_model(32)
+        cum_samples += 32
 
         obs = obs_prime
 
     # Done with 1 episode.
     # Transfer states of trained policy model to target model ocassionally
     # for expected Q values
+    # Also evaluate the model performance
     if episode % update_freq == 0:
         target_model.load_state_dict(policy_model.state_dict())
+        cum_reward = eval_model()
+        print(f"Model reward: {cum_reward}, Samples used: {cum_samples}")
 
     # Reset done
     done = False
