@@ -2,14 +2,16 @@ import torch
 import torch.nn as nn
 from torchvision import models
 
-class QNetwork(nn.Module):
-    """ Function approximator of Q(s,a) for a Deep Q Learning task.
+class SqueezeNetQValCritic(nn.Module):
+    """ 
+    Function approximator of Q(s,a) for a Deep Q Learning task. This is implemented
+    with a SqueezeNet. It is in the form of a Q-value critic.
     
     The neural network maps a state s, and an action a, to a Q value estimate.
     """
 
     def __init__(self, height, width, nch, n_actions):
-        super(QNetwork, self).__init__()
+        super(SqueezeNetQValCritic, self).__init__()
 
         # Main model is actually a squeezenet.
         # This converts image tensors of size (3, H, W) to (1000, 1) linear tensors
