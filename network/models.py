@@ -38,7 +38,7 @@ class SqueezeNetQValCritic(nn.Module):
         """ Kaiming uniform initialization for linear and conv2d layers"""
         if isinstance(layer, nn.Linear) or isinstance(layer, nn.Conv2d):
             # Only linear and conv2d layers have weights
-            nn.init.kaiming_uniform(layer.weight, a=2)
+            nn.init.kaiming_uniform_(layer.weight, a=2)
             layer.bias.data.fill_(0.01)
 
     def forward(self, img):
