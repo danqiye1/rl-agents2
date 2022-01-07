@@ -3,12 +3,12 @@ import torch
 import numpy as np
 from tqdm import tqdm
 from networks import models
-from ReplayBuffer.buffer import ReplayMemory
+from utils.buffer import ReplayMemory
 
 from pdb import set_trace as bp
 
 # Some global parameters
-env = gym.make("Breakout-v4")
+env = gym.make("Breakout-v0")
 observation = env.reset()
 done = False
 update_freq = 10
@@ -83,22 +83,28 @@ def train_model(batch_size, gamma=0.9):
         param.grad.data.clamp_(-1, 1)
     optimizer.step()
 
-def eval_model():
+def eval_model(max_steps=10000):
     """ Evaluate the target model """
-    print("Evaluating model...")
+
+    print("\nEvaluating model...")
     eval_done = False
     obs = env.reset()
     cum_reward = 0.0
-    while not eval_done:
+    step = 0
+
+    while not eval_done and step < max_steps:
         # We don't use select model because we want to follow policy greedily with target_model
         with torch.no_grad():
             obs_tensor = numpy_to_tensor(obs)
             q_val = target_model(obs_tensor.to(device))
             action = torch.argmax(q_val).item()
         
-        _, reward, eval_done, _ = env.step(action)
+        obs, reward, eval_done, _ = env.step(action)
+        step += 1
 
         cum_reward += reward
+
+    print("Evaluation done!")
 
     return cum_reward
 
@@ -134,3 +140,9 @@ for episode in tqdm(range(num_episodes)):
 
     # Reset done
     done = False
+
+
+# To Do:
+# 0. Breakout gets stuck if the action is not fire.
+# 1. Implement max steps for evaluation
+# 2. Implement decaying epsilon
