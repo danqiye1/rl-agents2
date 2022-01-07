@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 from torchvision import models
+from pdb import set_trace as bp
 
 class SqueezeNetQValCritic(nn.Module):
     """ 
@@ -27,6 +28,18 @@ class SqueezeNetQValCritic(nn.Module):
         self.linear = nn.Sequential(
             nn.Linear(linear_size, n_actions),
         )
+        
+        # Use Kaiming initialization
+        self.squeezenet.apply(self.init_weights)
+        self.linear.apply(self.init_weights)
+
+    @staticmethod
+    def init_weights(layer):
+        """ Kaiming uniform initialization for linear and conv2d layers"""
+        if isinstance(layer, nn.Linear) or isinstance(layer, nn.Conv2d):
+            # Only linear and conv2d layers have weights
+            nn.init.kaiming_uniform(layer.weight, a=2)
+            layer.bias.data.fill_(0.01)
 
     def forward(self, img):
         """ Q(s,a) function approximation """
