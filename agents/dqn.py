@@ -90,7 +90,7 @@ class DQNAgent:
             param.grad.data.clamp_(-1, 1)
         self.optimizer.step()
 
-    def train(self, num_episodes=100, max_iter=1000, batch_size=32, update_freq=10, epsilon=0.3):
+    def train(self, num_episodes=100, max_iter=1000, batch_size=32, update_freq=10, epsilon=0.3, render=True):
         """ Main training function for Deep Q Learning 
         
         :param num_episodes: Number of episodes to train on.
@@ -106,8 +106,12 @@ class DQNAgent:
 
             while not done and iter < max_iter:
                 # Sample an action and take one step
-                action = self.select_action(obs, epsilon=0.3)
+                action = self.select_action(obs, epsilon=epsilon)
                 obs_prime, reward, done, info = self.env.step(action)
+
+                # Decide if render is required for debugging and visualisation
+                if render:
+                    self.env.render()
 
                 self.buffer.push(obs, action, obs_prime, reward)
 
@@ -125,13 +129,13 @@ class DQNAgent:
             # Also evaluate the model performance
             if episode % update_freq == 0:
                 self.target_model.load_state_dict(self.policy_model.state_dict())
-                cum_reward = self.eval_model()
+                cum_reward = self.eval_model(render=render)
                 print(f"Model reward: {cum_reward}, Samples used: {self.num_samples}")
 
             # Reset done
             done = False
 
-    def eval_model(self, max_steps=10000):
+    def eval_model(self, max_steps=10000, render=True):
         """ Evaluate the target model """
 
         print("\nEvaluating model...")
@@ -148,6 +152,9 @@ class DQNAgent:
                 action = torch.argmax(q_val).item()
             
             obs, reward, eval_done, _ = self.env.step(action)
+            if render:
+                self.env.render()
+                
             step += 1
 
             cum_reward += reward
