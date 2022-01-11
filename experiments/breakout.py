@@ -19,10 +19,3 @@ agent = DQNAgent(env, model)
 
 # Training loop for 1000 episodes
 agent.train(num_episodes=1000)
-
-# To Do:
-# 0. Breakout gets stuck if the action is not fire.
-# 1. Concatenate history of 4 frames
-# 2. Implement max steps for evaluation (Implemented)
-# 3. Implement decaying epsilon
-# 4. Use Kaiming Initialization (Implemented)
