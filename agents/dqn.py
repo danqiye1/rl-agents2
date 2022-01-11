@@ -1,4 +1,5 @@
 import torch
+import pickle
 import numpy as np
 from tqdm import tqdm
 from copy import deepcopy
@@ -34,8 +35,11 @@ class DQNAgent:
         # Initialize replay buffer
         self.buffer = ReplayMemory(buffer_size)
 
-        # Cummulative samples that the agent is trained on
-        self.num_samples = 0
+        # Cummulative number of samples for each episode
+        self.num_samples = []
+
+        # Rewards for each episode
+        self.rewards = []
 
     def numpy_to_tensor(self, obs, has_batch_size=False):
         """ Helper function to convert numpy to torch tensor """
@@ -103,6 +107,8 @@ class DQNAgent:
             obs = self.env.reset()
             done = False
             iter = 0
+            cum_reward = 0.0
+            cum_samples = 0
 
             while not done and iter < max_iter:
                 # Sample an action and take one step
@@ -118,19 +124,22 @@ class DQNAgent:
                 # Train the model with batch size
                 # Higher batch size may cause cuda OOM
                 self.train_model(batch_size)
-                self.num_samples += batch_size
+                cum_samples += batch_size
 
                 obs = obs_prime
+                cum_reward += reward
                 iter += 1
 
             # Done with 1 episode.
             # Transfer states of trained policy model to target model ocassionally
             # for expected Q values
-            # Also evaluate the model performance
-            if episode % update_freq == 0:
+            # Also save a checkpoint
+            if episode % update_freq == 0 and episode > 1:
                 self.target_model.load_state_dict(self.policy_model.state_dict())
-                cum_reward = self.eval_model(render=render)
-                print(f"Model reward: {cum_reward}, Samples used: {self.num_samples}")
+                self.save(f"checkpoints/episode{episode}")
+            
+            self.rewards.append(cum_reward)
+            self.num_samples.append(cum_samples)
 
             # Reset done
             done = False
@@ -162,3 +171,30 @@ class DQNAgent:
         print("Evaluation done!")
 
         return cum_reward
+
+    def save(self, filename):
+        """ Save the model during training 
+        
+        :param filename: Prefix of filename for saving the model and training meta-data.
+        """
+        # Save the current target model
+        torch.save(self.target_model.state_dict(), f"{filename}-model.pt")
+
+        # Save the performance of current target model
+        with open(f"{filename}-meta.pkl", "wb") as fp:
+            pickle.dump(self.rewards, fp)
+            pickle.dump(self.num_samples, fp)
+
+    def load(self, filename):
+        """ Load the agent 
+        
+        :param filename: Prefix of filename for saving the model and training meta-data.
+        """
+        # Load the target model
+        self.target_model.load_state_dict(torch.load(f"{filename}-model.pt"))
+        self.policy_model.load_state_dict(self.target_model.state_dict())
+
+        # Load the training results
+        with open(f"{filename}-meta.pkl", "rb") as fp:
+            self.rewards = pickle.load(fp)
+            self.num_samples = pickle.load(fp)

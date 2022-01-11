@@ -20,4 +20,5 @@ model = SqueezeNetQValCritic(height, width, nch, n_actions)
 agent = DQNAgent(env, model)
 
 # Training loop for 1000 episodes
-agent.train(num_episodes=1000)
+agent.load("checkpoints/episode30")
+agent.train(num_episodes=1000, render=True)
