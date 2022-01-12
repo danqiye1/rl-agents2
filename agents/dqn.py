@@ -3,13 +3,15 @@ import pickle
 import numpy as np
 from tqdm import tqdm
 from copy import deepcopy
-from utils import ReplayMemory
+from utils import ReplayMemory, EpsilonScheduler
+
+default_scheduler = EpsilonScheduler()
 
 class DQNAgent:
     """
     Implementation of Deep Q Learning Agent.
     """
-    def __init__(self, env, model, buffer_size=10000):
+    def __init__(self, env, model, epsilon_scheduler=default_scheduler, buffer_size=10000):
         """
         :param env: An env interface following OpenAI gym specifications
         :param model: A model that serves as both policy and target model
@@ -41,8 +43,15 @@ class DQNAgent:
         # Rewards for each episode
         self.rewards = []
 
+        # Keep track of the number of frames and episodes
+        self.episodes = 0
+        self.num_frames = 0
+
+        # Initialize a epsilon scheduler
+        self.epsilon_scheduler = epsilon_scheduler
+
     def numpy_to_tensor(self, obs, has_batch_size=False):
-        """ Helper function to convert numpy to torch tensor """
+        """ Helper function to convert numpy to torch tensor """   
         if has_batch_size:
             obs_tensor = (torch.from_numpy(obs)
                 .permute(0,3,1,2)
@@ -94,7 +103,7 @@ class DQNAgent:
             param.grad.data.clamp_(-1, 1)
         self.optimizer.step()
 
-    def train(self, num_episodes=100, max_iter=1000, batch_size=32, update_freq=10, epsilon=0.3, render=True):
+    def train(self, num_episodes=100, max_iter=1000, batch_size=32, update_freq=10, render=True):
         """ Main training function for Deep Q Learning 
         
         :param num_episodes: Number of episodes to train on.
@@ -104,6 +113,7 @@ class DQNAgent:
         :param epsilon: Exploration probability.
         """
         for episode in tqdm(range(num_episodes)):
+
             obs = self.env.reset()
             done = False
             iter = 0
@@ -111,8 +121,9 @@ class DQNAgent:
             cum_samples = 0
 
             while not done and iter < max_iter:
+
                 # Sample an action and take one step
-                action = self.select_action(obs, epsilon=epsilon)
+                action = self.select_action(obs, epsilon=self.epsilon_scheduler(self.num_frames))
                 obs_prime, reward, done, info = self.env.step(action)
 
                 # Decide if render is required for debugging and visualisation
@@ -129,6 +140,7 @@ class DQNAgent:
                 obs = obs_prime
                 cum_reward += reward
                 iter += 1
+                self.num_frames += 1
 
             # Done with 1 episode.
             # Transfer states of trained policy model to target model ocassionally
@@ -140,6 +152,7 @@ class DQNAgent:
             
             self.rewards.append(cum_reward)
             self.num_samples.append(cum_samples)
+            self.episodes += 1
 
             # Reset done
             done = False
@@ -184,6 +197,7 @@ class DQNAgent:
         with open(f"{filename}-meta.pkl", "wb") as fp:
             pickle.dump(self.rewards, fp)
             pickle.dump(self.num_samples, fp)
+            pickle.dump(self.num_frames, fp)
 
     def load(self, filename):
         """ Load the agent 
@@ -198,3 +212,11 @@ class DQNAgent:
         with open(f"{filename}-meta.pkl", "rb") as fp:
             self.rewards = pickle.load(fp)
             self.num_samples = pickle.load(fp)
+            self.num_frames = pickle.load(fp)
+
+            # Check for errors in length
+            assert len(self.rewards) == len(self.num_samples), \
+                f"Mismatched length self.rewards is {len(self.rewards)} \
+                but self.num_samples is {len(self.num_samples)}!"
+
+            self.episodes = len(self.rewards)
