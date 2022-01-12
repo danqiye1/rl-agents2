@@ -115,6 +115,10 @@ class DQNAgent:
         for episode in tqdm(range(num_episodes)):
 
             obs = self.env.reset()
+            if len(obs.shape) == 2:
+                # Grayscale image lacking channel dimension needs to be expanded
+                obs = np.expand_dims(obs, 2)
+
             done = False
             iter = 0
             cum_reward = 0.0
@@ -125,6 +129,10 @@ class DQNAgent:
                 # Sample an action and take one step
                 action = self.select_action(obs, epsilon=self.epsilon_scheduler(self.num_frames))
                 obs_prime, reward, done, info = self.env.step(action)
+
+                if len(obs_prime.shape) == 2:
+                    # Grayscale image lacking channel dimension needs to be expanded
+                    obs_prime = np.expand_dims(obs_prime, 2)
 
                 # Decide if render is required for debugging and visualisation
                 if render:

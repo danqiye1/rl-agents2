@@ -14,9 +14,10 @@ class SqueezeNetQValCritic(nn.Module):
     def __init__(self, height, width, nch, n_actions):
         super(SqueezeNetQValCritic, self).__init__()
 
-        # Main model is actually a squeezenet.
-        # This converts image tensors of size (3, H, W) to (1000, 1) linear tensors
+        # Main model is actually a squeezenet, but modified to fit number of input channels
+        # This converts image tensors of size (nch, H, W) to (1000, 1) linear tensors
         self.squeezenet = models.squeezenet1_1()
+        self.squeezenet.features[0] = nn.Conv2d(nch, 64, kernel_size=(3, 3), stride=(2, 2))
 
         # Dimension check for linear layers with random tensor
         random_tensor = torch.rand([1, nch, height, width])
