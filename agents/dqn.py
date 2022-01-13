@@ -1,6 +1,7 @@
 import torch
 import pickle
 import numpy as np
+from copy import deepcopy
 from tqdm import tqdm
 from utils import ReplayMemory, EpsilonScheduler
 
@@ -20,8 +21,8 @@ class DQNAgent:
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
         # Internal model representations
-        self.policy_model = model.to(self.device)
-        self.target_model = model.to(self.device)
+        self.policy_model = deepcopy(model).to(self.device)
+        self.target_model = deepcopy(model).to(self.device)
         self.target_model.load_state_dict(self.policy_model.state_dict())
         self.target_model.eval()
 
