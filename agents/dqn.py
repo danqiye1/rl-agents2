@@ -2,7 +2,6 @@ import torch
 import pickle
 import numpy as np
 from tqdm import tqdm
-from copy import deepcopy
 from utils import ReplayMemory, EpsilonScheduler
 
 default_scheduler = EpsilonScheduler()
@@ -21,8 +20,8 @@ class DQNAgent:
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
         # Internal model representations
-        self.policy_model = deepcopy(model).to(self.device)
-        self.target_model = deepcopy(model).to(self.device)
+        self.policy_model = model.to(self.device)
+        self.target_model = model.to(self.device)
         self.target_model.load_state_dict(self.policy_model.state_dict())
         self.target_model.eval()
 
@@ -103,7 +102,7 @@ class DQNAgent:
             param.grad.data.clamp_(-1, 1)
         self.optimizer.step()
 
-    def train(self, num_episodes=100, max_iter=1000, batch_size=32, update_freq=10, render=True):
+    def train(self, num_episodes=100, batch_size=32, update_freq=10, render=True):
         """ Main training function for Deep Q Learning 
         
         :param num_episodes: Number of episodes to train on.
@@ -115,24 +114,24 @@ class DQNAgent:
         for episode in tqdm(range(num_episodes)):
 
             obs = self.env.reset()
-            if len(obs.shape) == 2:
-                # Grayscale image lacking channel dimension needs to be expanded
-                obs = np.expand_dims(obs, 2)
+            # if len(obs.shape) == 2:
+            #     # Grayscale image lacking channel dimension needs to be expanded
+            #     obs = np.expand_dims(obs, 2)
 
             done = False
             iter = 0
             cum_reward = 0.0
             cum_samples = 0
 
-            while not done and iter < max_iter:
+            while not done:
 
                 # Sample an action and take one step
                 action = self.select_action(obs, epsilon=self.epsilon_scheduler(self.num_frames))
                 obs_prime, reward, done, info = self.env.step(action)
 
-                if len(obs_prime.shape) == 2:
-                    # Grayscale image lacking channel dimension needs to be expanded
-                    obs_prime = np.expand_dims(obs_prime, 2)
+                # if len(obs_prime.shape) == 2:
+                #     # Grayscale image lacking channel dimension needs to be expanded
+                #     obs_prime = np.expand_dims(obs_prime, 2)
 
                 # Decide if render is required for debugging and visualisation
                 if render:
@@ -157,10 +156,14 @@ class DQNAgent:
             if episode % update_freq == 0 and episode > 1:
                 self.target_model.load_state_dict(self.policy_model.state_dict())
                 self.save(f"checkpoints/episode{episode}")
+                tqdm.write("Model saved!")
             
             self.rewards.append(cum_reward)
             self.num_samples.append(cum_samples)
             self.episodes += 1
+
+            # Output results
+            tqdm.write(f"Reward: {sum(self.rewards)/len(self.rewards)}, Steps: {self.num_frames}")
 
             # Reset done
             done = False

@@ -1,1 +1,1 @@
-from .models import SqueezeNetQValCritic
+from .models import SqueezeNetQValCritic, MinhDQN
