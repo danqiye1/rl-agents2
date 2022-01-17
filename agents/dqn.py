@@ -5,6 +5,8 @@ from copy import deepcopy
 from tqdm import tqdm
 from utils import ReplayMemory, EpsilonScheduler
 
+from pdb import set_trace as bp
+
 default_scheduler = EpsilonScheduler()
 
 class DQNAgent:
@@ -66,7 +68,7 @@ class DQNAgent:
 
     def select_action(self, obs, epsilon):
         """ Function to select action using epsilon greedy policy """
-        obs_tensor = self.numpy_to_tensor(obs).to(self.device)
+        obs_tensor = self.numpy_to_tensor(obs, has_batch_size=True).to(self.device)
         sample = np.random.rand()
 
         if sample > epsilon:
@@ -88,7 +90,7 @@ class DQNAgent:
         states, actions, next_states, rewards = states.to(self.device), actions.to(self.device), next_states.to(self.device), rewards.to(self.device)
 
         # Calculate estimated Q(s,a) based on policy network
-        estimated_q = self.policy_model(states).gather(1, actions.unsqueeze(-1))
+        estimated_q = self.policy_model(states).gather(0, actions)
         
         # Calculate expected V(s_prime) based on old target network, the more stationary network.
         expected_v = torch.max(self.target_model(next_states), dim=1)[0].detach()
@@ -103,7 +105,7 @@ class DQNAgent:
             param.grad.data.clamp_(-1, 1)
         self.optimizer.step()
 
-    def train(self, num_episodes=100, batch_size=32, update_freq=10, render=True):
+    def train(self, num_episodes=100, batch_size=32, update_freq=500, render=True):
         """ Main training function for Deep Q Learning 
         
         :param num_episodes: Number of episodes to train on.
@@ -128,6 +130,7 @@ class DQNAgent:
 
                 # Sample an action and take one step
                 action = self.select_action(obs, epsilon=self.epsilon_scheduler(self.num_frames))
+                action = np.asarray([action], dtype=np.int64)
                 obs_prime, reward, done, info = self.env.step(action)
 
                 # if len(obs_prime.shape) == 2:
@@ -150,26 +153,23 @@ class DQNAgent:
                 iter += 1
                 self.num_frames += 1
 
-            # Done with 1 episode.
-            # Transfer states of trained policy model to target model ocassionally
-            # for expected Q values
-            # Also save a checkpoint
-            if episode % update_freq == 0 and episode > 1:
-                self.target_model.load_state_dict(self.policy_model.state_dict())
-                self.save(f"checkpoints/episode{episode}")
-                tqdm.write("Model saved!")
+                # Update target model according to update freq
+                if self.num_frames % update_freq == 0:
+                    self.target_model.load_state_dict(self.policy_model.state_dict())
+                    self.save(f"checkpoints/step-{self.num_frames}")
+                    tqdm.write("Model saved!")
             
             self.rewards.append(cum_reward)
             self.num_samples.append(cum_samples)
             self.episodes += 1
 
             # Output results
-            tqdm.write(f"Reward: {sum(self.rewards)/len(self.rewards)}, Steps: {self.num_frames}")
+            tqdm.write(f"Reward: {sum(self.rewards)/len(self.rewards)}, Steps: {self.num_frames}, Epsilon: {self.epsilon_scheduler(self.num_frames)}")
 
             # Reset done
             done = False
 
-    def eval_model(self, max_steps=10000, render=True):
+    def eval_model(self, render=True):
         """ Evaluate the target model """
 
         print("\nEvaluating model...")
@@ -178,13 +178,14 @@ class DQNAgent:
         cum_reward = 0.0
         step = 0
 
-        while not eval_done and step < max_steps:
+        while not eval_done:
             # We don't use select model because we want to follow policy greedily with target_model
             with torch.no_grad():
-                obs_tensor = self.numpy_to_tensor(obs)
+                obs_tensor = self.numpy_to_tensor(obs, has_batch_size=True)
                 q_val = self.target_model(obs_tensor.to(self.device))
                 action = torch.argmax(q_val).item()
             
+            action = np.asanyarray([action], dtype=np.int64)
             obs, reward, eval_done, _ = self.env.step(action)
             if render:
                 self.env.render()

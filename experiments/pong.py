@@ -1,20 +1,20 @@
 """ Let's make DQN Agent learn pong """
 
-import gym
+from stable_baselines3.common.cmd_util import make_atari_env
+from stable_baselines3.common.vec_env import VecFrameStack
 
 from agents import DQNAgent
 from network import MinhDQN
 
-from pdb import set_trace as bp
-
-# Some global parameters
-env = gym.make("PongNoFrameskip-v0")
-env = gym.wrappers.AtariPreprocessing(env, grayscale_newaxis=True)
+# Instantiate environment
+env = make_atari_env("PongNoFrameskip-v4")
+# Frame-stacking with 4 frames
+env = VecFrameStack(env, n_stack=4)
 
 observation = env.reset()
 
 # Get observation dimensions and size of action space
-height, width, nch = observation.shape
+_, height, width, nch = observation.shape
 n_actions = env.action_space.n
 
 # Initialize critic model and agent
@@ -22,5 +22,4 @@ model = MinhDQN(nch, n_actions)
 agent = DQNAgent(env, model)
 
 # Training loop for 100 episodes
-agent.load("checkpoints/episode90")
 agent.train(render=True)
