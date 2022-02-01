@@ -13,11 +13,15 @@ class DQNAgent:
     """
     Implementation of Deep Q Learning Agent.
     """
-    def __init__(self, env, model, epsilon_scheduler=default_scheduler, buffer_size=10000):
+    def __init__(self, env, model, epsilon_scheduler=default_scheduler, buffer_size=1000000, lr=0.00025):
         """
-        :param env: An env interface following OpenAI gym specifications
-        :param model: A model that serves as both policy and target model
+        :param env: An env interface following OpenAI gym specifications.
+        :param model: A model that serves as both policy and target model.
         :type model: torch.nn.Module
+
+        :param epsilon_scheduler: An object to schedule the epsilon decay rate.
+        :param buffer_size: Size of replay buffer.
+        :param lr: Learning rate for RMSProp.
         """
         # Internal device mapper
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -30,7 +34,7 @@ class DQNAgent:
 
         # Internal optimizers
         self.criterion = torch.nn.SmoothL1Loss()
-        self.optimizer = torch.optim.RMSprop(self.policy_model.parameters())
+        self.optimizer = torch.optim.RMSprop(self.policy_model.parameters(), lr=lr)
 
         # Interface with environment
         self.env = env
@@ -105,7 +109,7 @@ class DQNAgent:
             param.grad.data.clamp_(-1, 1)
         self.optimizer.step()
 
-    def train(self, num_episodes=100, batch_size=32, update_freq=500, render=True):
+    def train(self, num_episodes=1000, batch_size=32, update_freq=10000, render=True):
         """ Main training function for Deep Q Learning 
         
         :param num_episodes: Number of episodes to train on.
