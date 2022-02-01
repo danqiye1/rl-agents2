@@ -26,8 +26,9 @@ _, height, width, nch = observation.shape
 n_actions = env.action_space.n
 
 # Initialize critic model and agent
-model = MinhDQN(nch, n_actions)
-agent = DQNAgent(env, model)
+policy_model = MinhDQN(nch, n_actions)
+target_model = MinhDQN(nch, n_actions)
+agent = DQNAgent(env, policy_model, target_model)
 
 # Load pretrained model if path is given
 if args.model_path:

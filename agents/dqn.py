@@ -13,10 +13,11 @@ class DQNAgent:
     """
     Implementation of Deep Q Learning Agent.
     """
-    def __init__(self, env, model, epsilon_scheduler=default_scheduler, buffer_size=1000000, lr=0.00025):
+    def __init__(self, env, policy_model, target_model, epsilon_scheduler=default_scheduler, buffer_size=1000000, lr=0.00025):
         """
         :param env: An env interface following OpenAI gym specifications.
-        :param model: A model that serves as both policy and target model.
+        :param policy_model: A model to estimate q from input observations.
+        :param target_model: A model to estimate target q from input observataions.
         :type model: torch.nn.Module
 
         :param epsilon_scheduler: An object to schedule the epsilon decay rate.
@@ -27,8 +28,9 @@ class DQNAgent:
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
         # Internal model representations
-        self.policy_model = deepcopy(model).to(self.device)
-        self.target_model = deepcopy(model).to(self.device)
+        assert policy_model is not target_model, "Target model and policy model should not reference the same object!"
+        self.policy_model = policy_model.to(self.device)
+        self.target_model = target_model.to(self.device)
         self.target_model.load_state_dict(self.policy_model.state_dict())
         self.target_model.eval()
 
