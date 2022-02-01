@@ -96,7 +96,7 @@ class DQNAgent:
         states, actions, next_states, rewards = states.to(self.device), actions.to(self.device), next_states.to(self.device), rewards.to(self.device)
 
         # Calculate estimated Q(s,a) based on policy network
-        estimated_q = self.policy_model(states).gather(0, actions)
+        estimated_q = self.policy_model(states).gather(1, actions)
         
         # Calculate expected V(s_prime) based on old target network, the more stationary network.
         expected_v = torch.max(self.target_model(next_states), dim=1)[0].detach()
@@ -170,7 +170,7 @@ class DQNAgent:
             self.episodes += 1
 
             # Output results
-            tqdm.write(f"Reward: {sum(self.rewards)/len(self.rewards)}, Steps: {self.num_frames}, Epsilon: {self.epsilon_scheduler(self.num_frames)}")
+            tqdm.write(f"Reward: {sum(self.rewards[:len(self.rewards) - 100 - 1])/100}, Steps: {self.num_frames}, Epsilon: {self.epsilon_scheduler(self.num_frames)}")
 
             # Reset done
             done = False
