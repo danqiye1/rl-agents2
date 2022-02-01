@@ -28,9 +28,9 @@ class ReplayMemory(object):
 
         return (
             torch.from_numpy(np.concatenate(states)).type(torch.FloatTensor).permute(0,3,1,2), 
-            torch.LongTensor(actions), 
+            torch.LongTensor(np.array(actions)), 
             torch.from_numpy(np.concatenate(next_states)).type(torch.FloatTensor).permute(0,3,1,2), 
-            torch.Tensor(rewards)
+            torch.Tensor(np.concatenate(rewards))
         )
 
     def __len__(self):
