@@ -51,6 +51,9 @@ class DQNAgent:
         # Rewards for each episode
         self.rewards = []
 
+        # Track the cummulative max Q estimate of training:
+        self.cum_max_q = 0
+
         # Keep track of the number of frames and episodes
         self.episodes = 0
         self.num_frames = 0
@@ -85,22 +88,28 @@ class DQNAgent:
             return self.env.action_space.sample()
 
     def train_model(self, batch_size, gamma=0.9):
-        """ Train the model one step """
+        """ 
+        Train the model one step 
+        
+        :return: max Q value of this batch.
+        """
 
         if len(self.buffer) < batch_size:
             # Not enough data yet
-            return
+            return 0
 
         # Sample from ReplayBuffer
-        states, actions, next_states, rewards = self.buffer.sample(batch_size)
-        states, actions, next_states, rewards = states.to(self.device), actions.to(self.device), next_states.to(self.device), rewards.to(self.device)
+        states, actions, next_states, rewards, done = self.buffer.sample(batch_size)
+        states, actions = states.to(self.device), actions.to(self.device)
+        next_states, rewards, done = next_states.to(self.device), rewards.to(self.device), done.to(self.device)
 
         # Calculate estimated Q(s,a) based on policy network
-        estimated_q = self.policy_model(states).gather(1, actions)
+        policy_q = self.policy_model(states)
+        estimated_q = policy_q.gather(1, actions)
         
         # Calculate expected V(s_prime) based on old target network, the more stationary network.
         expected_v = torch.max(self.target_model(next_states), dim=1)[0].detach()
-        target = expected_v * gamma + rewards
+        target = rewards + gamma * expected_v * (1 - done)
 
         loss = self.criterion(estimated_q, target.unsqueeze(1))
 
@@ -110,6 +119,8 @@ class DQNAgent:
         for param in self.policy_model.parameters():
             param.grad.data.clamp_(-1, 1)
         self.optimizer.step()
+
+        return torch.max(policy_q).item()
 
     def train(self, num_episodes=1000, batch_size=32, update_freq=10000, render=True):
         """ Main training function for Deep Q Learning 
@@ -147,12 +158,13 @@ class DQNAgent:
                 if render:
                     self.env.render()
 
-                self.buffer.push(obs, action, obs_prime, reward)
+                self.buffer.push(obs, action, obs_prime, reward, done)
 
                 # Train the model with batch size
                 # Higher batch size may cause cuda OOM
-                self.train_model(batch_size)
-                cum_samples += batch_size
+                max_q = self.train_model(batch_size)
+                self.cum_max_q += max_q
+                # cum_samples += batch_size
 
                 obs = obs_prime
                 cum_reward += reward
@@ -166,11 +178,20 @@ class DQNAgent:
                     tqdm.write("Model saved!")
             
             self.rewards.append(cum_reward)
-            self.num_samples.append(cum_samples)
+            # self.num_samples.append(cum_samples)
             self.episodes += 1
 
+            # Calculate statistics for tqdm and tensorboard
+            # For tracking experiment performance
+            avg_reward = sum(self.rewards[::-1][:100]) / 100
+            avg_q = self.cum_max_q / self.num_frames
+
             # Output results
-            tqdm.write(f"Reward: {sum(self.rewards[:len(self.rewards) - 100 - 1])/100}, Steps: {self.num_frames}, Epsilon: {self.epsilon_scheduler(self.num_frames)}")
+            tqdm.write(
+                f"Avg Reward: {avg_reward}, \
+                Steps: {self.num_frames}, \
+                Avg Q: {avg_q: .3f}, \
+                Epsilon: {self.epsilon_scheduler(self.num_frames)}")
 
             # Reset done
             done = False
