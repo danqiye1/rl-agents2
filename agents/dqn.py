@@ -1,8 +1,8 @@
 import torch
 import pickle
 import numpy as np
-from copy import deepcopy
 from tqdm import tqdm
+from collections import deque
 from utils import ReplayMemory, EpsilonScheduler
 
 from pdb import set_trace as bp
@@ -45,14 +45,11 @@ class DQNAgent:
         # Initialize replay buffer
         self.buffer = ReplayMemory(buffer_size)
 
-        # Cummulative number of samples for each episode
-        self.num_samples = []
-
         # Rewards for each episode
-        self.rewards = []
+        self.rewards = deque(maxlen=100)
 
         # Track the cummulative max Q estimate of training:
-        self.cum_max_q = 0
+        self.max_q = deque(maxlen=100)
 
         # Keep track of the number of frames and episodes
         self.episodes = 0
@@ -141,7 +138,6 @@ class DQNAgent:
             done = False
             iter = 0
             cum_reward = 0.0
-            cum_samples = 0
 
             while not done:
 
@@ -149,10 +145,6 @@ class DQNAgent:
                 action = self.select_action(obs, epsilon=self.epsilon_scheduler(self.num_frames))
                 action = np.asarray([action], dtype=np.int64)
                 obs_prime, reward, done, info = self.env.step(action)
-
-                # if len(obs_prime.shape) == 2:
-                #     # Grayscale image lacking channel dimension needs to be expanded
-                #     obs_prime = np.expand_dims(obs_prime, 2)
 
                 # Decide if render is required for debugging and visualisation
                 if render:
@@ -163,7 +155,7 @@ class DQNAgent:
                 # Train the model with batch size
                 # Higher batch size may cause cuda OOM
                 max_q = self.train_model(batch_size)
-                self.cum_max_q += max_q
+                self.max_q.append(max_q)
                 # cum_samples += batch_size
 
                 obs = obs_prime
@@ -178,13 +170,12 @@ class DQNAgent:
                     tqdm.write("Model saved!")
             
             self.rewards.append(cum_reward)
-            # self.num_samples.append(cum_samples)
             self.episodes += 1
 
             # Calculate statistics for tqdm and tensorboard
             # For tracking experiment performance
-            avg_reward = sum(self.rewards[::-1][:100]) / 100
-            avg_q = self.cum_max_q / self.num_frames
+            avg_reward = sum(self.rewards) / 100
+            avg_q = sum(self.max_q) / 100
 
             # Output results
             tqdm.write(
@@ -236,8 +227,8 @@ class DQNAgent:
         # Save the performance of current target model
         with open(f"{filename}-meta.pkl", "wb") as fp:
             pickle.dump(self.rewards, fp)
-            pickle.dump(self.num_samples, fp)
             pickle.dump(self.num_frames, fp)
+            pickle.dump(self.max_q, fp)
 
     def load(self, filename):
         """ Load the agent 
@@ -251,12 +242,6 @@ class DQNAgent:
         # Load the training results
         with open(f"{filename}-meta.pkl", "rb") as fp:
             self.rewards = pickle.load(fp)
-            self.num_samples = pickle.load(fp)
             self.num_frames = pickle.load(fp)
-
-            # Check for errors in length
-            assert len(self.rewards) == len(self.num_samples), \
-                f"Mismatched length self.rewards is {len(self.rewards)} \
-                but self.num_samples is {len(self.num_samples)}!"
 
             self.episodes = len(self.rewards)
