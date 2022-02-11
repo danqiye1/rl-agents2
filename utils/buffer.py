@@ -3,6 +3,8 @@ import torch
 import numpy as np
 from collections import namedtuple, deque
 
+from pdb import set_trace as bp
+
 Transition = namedtuple('Transition', ('state', 'action', 'next_state', 'reward', 'done'))
 
 class ReplayMemory(object):
@@ -28,11 +30,11 @@ class ReplayMemory(object):
             termination.append(done)
 
         return (
-            torch.from_numpy(np.concatenate(states)).type(torch.FloatTensor).permute(0,3,1,2), 
+            torch.Tensor(np.array(states)), 
             torch.LongTensor(np.array(actions)), 
-            torch.from_numpy(np.concatenate(next_states)).type(torch.FloatTensor).permute(0,3,1,2), 
-            torch.Tensor(np.concatenate(rewards)),
-            torch.Tensor(np.concatenate(termination))
+            torch.Tensor(np.array(next_states)), 
+            torch.Tensor(np.array(rewards)),
+            torch.LongTensor(np.array(termination))
         )
 
     def __len__(self):

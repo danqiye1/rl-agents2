@@ -1,3 +1,4 @@
+import cv2
 import torch
 import pickle
 import numpy as np
@@ -42,6 +43,21 @@ class DQNAgent:
         # Interface with environment
         self.env = env
 
+        # State size for breakout env. SS images (210, 160, 3). Used as input size in network
+        self.state_size_h = env.observation_space.shape[0]
+        self.state_size_w = env.observation_space.shape[1]
+        self.state_size_c = env.observation_space.shape[2]
+
+        # Activation size for breakout env. Used as output size in network
+        self.action_size = env.action_space.n
+
+        # Image pre process params
+        self.target_h = 84  # Height after process
+        self.target_w = 84  # Widht after process
+
+        self.crop_dim = [20, self.state_size_h, 0, self.state_size_w]  # Cut 20 px from top to get rid of the score table
+        
+
         # Replay buffer
         # Initialize replay buffer
         self.buffer = ReplayMemory(buffer_size)
@@ -78,9 +94,21 @@ class DQNAgent:
 
         return obs_tensor
 
+    def preProcess(self, image):
+        """
+        Process image crop resize, grayscale and normalize the images
+        """
+        frame = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)  # To grayscale
+        frame = frame[self.crop_dim[0]:self.crop_dim[1], self.crop_dim[2]:self.crop_dim[3]]  # Cut 20 px from top
+        frame = cv2.resize(frame, (self.target_w, self.target_h))  # Resize
+        frame = frame.reshape(self.target_w, self.target_h) / 255  # Normalize
+
+        return frame
+
     def select_action(self, obs, epsilon):
         """ Function to select action using epsilon greedy policy """
-        obs_tensor = self.numpy_to_tensor(obs, has_batch_size=True).to(self.device)
+        # obs_tensor = self.numpy_to_tensor(obs, has_batch_size=False).to(self.device)
+        obs_tensor = torch.Tensor(obs).unsqueeze(0).to(self.device)
         sample = np.random.rand()
 
         if sample > epsilon:
@@ -109,7 +137,7 @@ class DQNAgent:
         # Calculate estimated Q(s,a) based on policy network
         policy_q = self.policy_model(states)
         estimated_q = policy_q.gather(1, actions)
-        
+
         # Calculate expected V(s_prime) based on old target network, the more stationary network.
         expected_v = torch.max(self.target_model(next_states), dim=1)[0].detach()
         target = rewards + gamma * expected_v * (1 - done)
@@ -138,9 +166,9 @@ class DQNAgent:
         for episode in tqdm(range(num_episodes)):
 
             obs = self.env.reset()
-            # if len(obs.shape) == 2:
-            #     # Grayscale image lacking channel dimension needs to be expanded
-            #     obs = np.expand_dims(obs, 2)
+            obs = self.preProcess(obs)
+
+            obs = np.stack((obs, obs, obs, obs))
 
             done = False
             iter = 0
@@ -153,6 +181,9 @@ class DQNAgent:
                 action = self.select_action(obs, epsilon = self.epsilon)
                 action = np.asarray([action], dtype=np.int64)
                 obs_prime, reward, done, info = self.env.step(action)
+
+                obs_prime = self.preProcess(obs_prime)
+                obs_prime = np.stack((obs_prime, obs[0], obs[1], obs[2]))
 
                 # Decide if render is required for debugging and visualisation
                 if render:
