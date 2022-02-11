@@ -4,6 +4,7 @@ import numpy as np
 from tqdm import tqdm
 from collections import deque
 from utils import ReplayMemory, EpsilonScheduler
+from torch.utils.tensorboard import SummaryWriter
 
 from pdb import set_trace as bp
 
@@ -58,6 +59,11 @@ class DQNAgent:
         # Initialize a epsilon scheduler
         self.epsilon_scheduler = epsilon_scheduler
 
+        # Initialize a tensorboard writer
+        self.writer = SummaryWriter()
+
+        self.epsilon = 1
+
     def numpy_to_tensor(self, obs, has_batch_size=False):
         """ Helper function to convert numpy to torch tensor """   
         if has_batch_size:
@@ -108,7 +114,8 @@ class DQNAgent:
         expected_v = torch.max(self.target_model(next_states), dim=1)[0].detach()
         target = rewards + gamma * expected_v * (1 - done)
 
-        loss = self.criterion(estimated_q, target.unsqueeze(1))
+        # loss = self.criterion(estimated_q, target.unsqueeze(1))
+        loss = (estimated_q.squeeze() - target.detach()).pow(2).mean()
 
         # Optimize the model with gradient clipping
         self.optimizer.zero_grad()
@@ -142,7 +149,8 @@ class DQNAgent:
             while not done:
 
                 # Sample an action and take one step
-                action = self.select_action(obs, epsilon=self.epsilon_scheduler(self.num_frames))
+                # action = self.select_action(obs, epsilon=self.epsilon_scheduler(self.num_frames))
+                action = self.select_action(obs, epsilon = self.epsilon)
                 action = np.asarray([action], dtype=np.int64)
                 obs_prime, reward, done, info = self.env.step(action)
 
@@ -162,6 +170,10 @@ class DQNAgent:
                 cum_reward += reward
                 iter += 1
                 self.num_frames += 1
+                
+                if self.num_frames % 1000 == 0:
+                    if self.epsilon > 0.05:
+                        self.epsilon *= 0.99
 
                 # Update target model according to update freq
                 if self.num_frames % update_freq == 0:
@@ -174,15 +186,19 @@ class DQNAgent:
 
             # Calculate statistics for tqdm and tensorboard
             # For tracking experiment performance
-            avg_reward = sum(self.rewards) / 100
-            avg_q = sum(self.max_q) / 100
+            avg_reward = sum(self.rewards) / len(self.rewards)
+            avg_q = sum(self.max_q) / len(self.max_q)
 
             # Output results
             tqdm.write(
                 f"Avg Reward: {avg_reward}, \
                 Steps: {self.num_frames}, \
                 Avg Q: {avg_q: .3f}, \
-                Epsilon: {self.epsilon_scheduler(self.num_frames)}")
+                Epsilon: {self.epsilon: .3f}")
+
+            self.writer.add_scalar('Avg/Reward', avg_reward, episode)
+            self.writer.add_scalar('Avg/Max Q', avg_q, episode)
+            self.writer.add_scalar('Epsilon', self.epsilon, episode)
 
             # Reset done
             done = False
