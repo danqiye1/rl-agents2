@@ -18,7 +18,7 @@ EPSILON_DECAY = 0.99
 EPSILON_DECAY_FREQ = 1000
 
 # Model Hyperparameters
-LEARNING_RATE = 0.0025
+LEARNING_RATE = 0.00025
 
 # Training Hyperparameters
 NUM_EPISODES = 1000
