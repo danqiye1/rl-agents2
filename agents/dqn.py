@@ -9,13 +9,11 @@ from torch.utils.tensorboard import SummaryWriter
 
 from pdb import set_trace as bp
 
-default_scheduler = EpsilonScheduler()
-
 class DQNAgent:
     """
     Implementation of Deep Q Learning Agent.
     """
-    def __init__(self, env, policy_model, target_model, epsilon_scheduler=default_scheduler, buffer_size=100000, lr=0.00025):
+    def __init__(self, env, policy_model, target_model, buffer_size=100000, lr=0.00025):
         """
         :param env: An env interface following OpenAI gym specifications.
         :param policy_model: A model to estimate q from input observations.
@@ -71,9 +69,6 @@ class DQNAgent:
         # Keep track of the number of frames and episodes
         self.episodes = 0
         self.num_frames = 0
-
-        # Initialize a epsilon scheduler
-        self.epsilon_scheduler = epsilon_scheduler
 
         # Initialize a tensorboard writer
         self.tensorboard_writer = SummaryWriter()
