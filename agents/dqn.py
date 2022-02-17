@@ -88,20 +88,6 @@ class DQNAgent:
         self.epsilon_decay = epsilon_decay_rate
         self.epsilon_decay_freq = epsilon_decay_freq
 
-    def numpy_to_tensor(self, obs, has_batch_size=False):
-        """ Helper function to convert numpy to torch tensor """   
-        if has_batch_size:
-            obs_tensor = (torch.from_numpy(obs)
-                .permute(0,3,1,2)
-                .type(torch.FloatTensor))
-        else:
-            obs_tensor = (torch.from_numpy(obs)
-                .permute(2,0,1)
-                .type(torch.FloatTensor)
-                .unsqueeze(0))
-
-        return obs_tensor
-
     def preProcess(self, image):
         """
         Process image crop resize, grayscale and normalize the images
@@ -115,7 +101,6 @@ class DQNAgent:
 
     def select_action(self, obs, epsilon):
         """ Function to select action using epsilon greedy policy """
-        # obs_tensor = self.numpy_to_tensor(obs, has_batch_size=False).to(self.device)
         obs_tensor = torch.Tensor(obs).unsqueeze(0).to(self.device)
         sample = np.random.rand()
 
