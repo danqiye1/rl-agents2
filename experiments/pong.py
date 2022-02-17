@@ -3,6 +3,7 @@ import gym
 import argparse
 from agents import DQNAgent
 from network import MinhDQN
+from torch.utils.tensorboard import SummaryWriter
 
 # Agent Hyperparameters
 ENV_NAME = "PongDeterministic-v4"
@@ -23,6 +24,7 @@ LEARNING_RATE = 0.0025
 NUM_EPISODES = 1000
 BATCH_SIZE = 32
 RENDER = True
+LOG_DIR = "runs/dqn-pong"
 
 # Command line parser
 parser = argparse.ArgumentParser(description="Atari Pong parameters")
@@ -39,10 +41,15 @@ observation = env.reset()
 _, height, width = observation.shape
 n_actions = env.action_space.n
 
+tensorboard_writer = SummaryWriter(LOG_DIR)
+
 # Initialize critic model and agent
 policy_model = MinhDQN(FRAMESKIP, n_actions)
 target_model = MinhDQN(FRAMESKIP, n_actions)
-agent = DQNAgent(env, policy_model, target_model, EPSILON_START, EPSILON_END, EPSILON_DECAY, EPSILON_DECAY_FREQ, GAMMA, BUFFER_SIZE, LEARNING_RATE)
+agent = DQNAgent(
+    env, policy_model, target_model, EPSILON_START, EPSILON_END, EPSILON_DECAY, EPSILON_DECAY_FREQ,
+    GAMMA, BUFFER_SIZE, LEARNING_RATE, tensorboard_writer
+)
 
 # Load pretrained model if path is given
 if args.model_path:
