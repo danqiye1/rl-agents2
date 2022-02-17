@@ -13,7 +13,20 @@ class DQNAgent:
     """
     Implementation of Deep Q Learning Agent.
     """
-    def __init__(self, env, policy_model, target_model, buffer_size=100000, lr=0.00025):
+    def __init__(
+        self, 
+        env, 
+        policy_model, 
+        target_model, 
+        initial_epsilon, 
+        final_epsilon,
+        epsilon_decay_rate,
+        epsilon_decay_freq,
+        gamma, 
+        buffer_size, 
+        learning_rate,
+        tensorboard_writer=None
+    ):
         """
         :param env: An env interface following OpenAI gym specifications.
         :param policy_model: A model to estimate q from input observations.
@@ -36,7 +49,7 @@ class DQNAgent:
 
         # Internal optimizers
         self.criterion = torch.nn.SmoothL1Loss()
-        self.optimizer = torch.optim.RMSprop(self.policy_model.parameters(), lr=lr)
+        self.optimizer = torch.optim.RMSprop(self.policy_model.parameters(), lr=learning_rate)
 
         # Interface with environment
         self.env = env
@@ -49,12 +62,14 @@ class DQNAgent:
         # Activation size for breakout env. Used as output size in network
         self.action_size = env.action_space.n
 
+        # Decay of future rewards
+        self.gamma = gamma
+
         # Image pre process params
         self.target_h = 84  # Height after process
         self.target_w = 84  # Widht after process
 
         self.crop_dim = [20, self.state_size_h, 0, self.state_size_w]  # Cut 20 px from top to get rid of the score table
-        
 
         # Replay buffer
         # Initialize replay buffer
@@ -71,9 +86,15 @@ class DQNAgent:
         self.num_frames = 0
 
         # Initialize a tensorboard writer
-        self.tensorboard_writer = SummaryWriter()
+        if tensorboard_writer:
+            self.tensorboard_writer = tensorboard_writer
+        else:
+            self.tensorboard_writer = SummaryWriter()
 
-        self.epsilon = 1
+        self.epsilon = initial_epsilon
+        self.final_epsilon = final_epsilon
+        self.epsilon_decay = epsilon_decay_rate
+        self.epsilon_decay_freq = epsilon_decay_freq
 
     def numpy_to_tensor(self, obs, has_batch_size=False):
         """ Helper function to convert numpy to torch tensor """   
@@ -113,7 +134,7 @@ class DQNAgent:
         else:
             return self.env.action_space.sample()
 
-    def train_model(self, batch_size, gamma=0.9):
+    def train_model(self, batch_size):
         """ 
         Train the model one step 
         
@@ -135,7 +156,7 @@ class DQNAgent:
 
         # Calculate expected V(s_prime) based on old target network, the more stationary network.
         expected_v = torch.max(self.target_model(next_states), dim=1)[0].detach()
-        target = rewards + gamma * expected_v * (1 - done)
+        target = rewards + self.gamma * expected_v * (1 - done)
 
         # loss = self.criterion(estimated_q, target.unsqueeze(1))
         loss = (estimated_q.squeeze() - target.detach()).pow(2).mean()
@@ -149,14 +170,13 @@ class DQNAgent:
 
         return torch.max(policy_q).item()
 
-    def train(self, num_episodes=1000, batch_size=32, update_freq=10000, render=True):
+    def train(self, num_episodes, batch_size, update_freq, render):
         """ Main training function for Deep Q Learning 
         
         :param num_episodes: Number of episodes to train on.
-        :param max_iter: Maximum number of iterations per episode.
         :param batch_size: Batch size of 1 backpropagation.
         :param update_freq: Frequency of updates for target network.
-        :param epsilon: Exploration probability.
+        :param render: Whether the game window will be rendered.
         """
         for episode in tqdm(range(num_episodes)):
 
@@ -198,8 +218,8 @@ class DQNAgent:
                 self.num_frames += 1
                 
                 if self.num_frames % 1000 == 0:
-                    if self.epsilon > 0.05:
-                        self.epsilon *= 0.99
+                    if self.epsilon > self.final_epsilon:
+                        self.epsilon *= self.epsilon_decay
 
                 # Update target model according to update freq
                 if self.num_frames % update_freq == 0:
