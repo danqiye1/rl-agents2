@@ -76,7 +76,7 @@ class DQNAgent:
         self.epsilon_scheduler = epsilon_scheduler
 
         # Initialize a tensorboard writer
-        self.writer = SummaryWriter()
+        self.tensorboard_writer = SummaryWriter()
 
         self.epsilon = 1
 
@@ -227,9 +227,9 @@ class DQNAgent:
                 Avg Q: {avg_q: .3f}, \
                 Epsilon: {self.epsilon: .3f}")
 
-            self.writer.add_scalar('Avg/Reward', avg_reward, episode)
-            self.writer.add_scalar('Avg/Max Q', avg_q, episode)
-            self.writer.add_scalar('Epsilon', self.epsilon, episode)
+            self.tensorboard_writer.add_scalar('Avg/Reward', avg_reward, episode)
+            self.tensorboard_writer.add_scalar('Avg/Max Q', avg_q, episode)
+            self.tensorboard_writer.add_scalar('Epsilon', self.epsilon, episode)
 
             # Reset done
             done = False
