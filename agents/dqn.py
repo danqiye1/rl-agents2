@@ -1,6 +1,7 @@
 import cv2
 import torch
 import pickle
+import wandb
 import time
 import numpy as np
 from tqdm import tqdm
@@ -25,8 +26,7 @@ class DQNAgent:
         epsilon_decay_freq,
         gamma, 
         buffer_size, 
-        learning_rate,
-        tensorboard_writer=None
+        learning_rate
     ):
         """
         :param env: An env interface following OpenAI gym specifications.
@@ -85,12 +85,6 @@ class DQNAgent:
         # Keep track of the number of frames and episodes
         self.episodes = 0
         self.num_frames = 0
-
-        # Initialize a tensorboard writer
-        if tensorboard_writer:
-            self.tensorboard_writer = tensorboard_writer
-        else:
-            self.tensorboard_writer = SummaryWriter()
 
         self.epsilon = initial_epsilon
         self.final_epsilon = final_epsilon
@@ -243,9 +237,11 @@ class DQNAgent:
                 Avg Q: {avg_q: .3f}, \
                 Epsilon: {self.epsilon: .3f}")
 
-            self.tensorboard_writer.add_scalar('Avg/Reward', avg_reward, episode)
-            self.tensorboard_writer.add_scalar('Avg/Max Q', avg_q, episode)
-            self.tensorboard_writer.add_scalar('Epsilon', self.epsilon, episode)
+            wandb.log({
+                "avg_reward": avg_reward,
+                "avg_Q": avg_q,
+                "epsilon": self.epsilon
+            })
 
             # Reset done
             done = False
