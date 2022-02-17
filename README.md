@@ -16,3 +16,21 @@ I hope that this repository will be my personal framework for Deep Reinforcement
 6. Keep track of episodes (Implemented)
 7. Use original CNN architecture in 2013 paper for sanity.
 8. Make env terminate after one death.
+
+## Running Experiments
+Entry points to experiments are in `experiments` folder. 
+
+To train a pong agent:
+```bash
+$ python experiments/pong.py --train
+```
+
+To continue training from a model:
+```bash
+$ python experiments/pong.py --train -l checkpoints/step-<step_num>
+```
+
+To evaluate a model:
+```bash
+$ python experiments/pong.py --eval -l checkpoints/step-<step_num>
+```
