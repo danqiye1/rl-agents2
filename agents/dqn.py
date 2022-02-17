@@ -1,10 +1,11 @@
 import cv2
 import torch
 import pickle
+import time
 import numpy as np
 from tqdm import tqdm
 from collections import deque
-from utils import ReplayMemory, EpsilonScheduler
+from utils import ReplayMemory
 from torch.utils.tensorboard import SummaryWriter
 
 from pdb import set_trace as bp
@@ -255,18 +256,25 @@ class DQNAgent:
         print("\nEvaluating model...")
         eval_done = False
         obs = self.env.reset()
+        obs = self.preProcess(obs)
+        obs = np.stack((obs, obs, obs, obs))
+
         cum_reward = 0.0
         step = 0
 
         while not eval_done:
             # We don't use select model because we want to follow policy greedily with target_model
             with torch.no_grad():
-                obs_tensor = self.numpy_to_tensor(obs, has_batch_size=True)
+                obs_tensor = torch.Tensor(obs).unsqueeze(0)
                 q_val = self.target_model(obs_tensor.to(self.device))
                 action = torch.argmax(q_val).item()
             
             action = np.asanyarray([action], dtype=np.int64)
-            obs, reward, eval_done, _ = self.env.step(action)
+            obs_prime, reward, eval_done, _ = self.env.step(action)
+            time.sleep(0.01)
+            obs_prime = self.preProcess(obs_prime)
+            obs = np.stack((obs_prime, obs[0], obs[1], obs[2]))
+
             if render:
                 self.env.render()
                 
