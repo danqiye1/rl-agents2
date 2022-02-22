@@ -25,7 +25,7 @@ parameters = {
     "epsilon_end": 0.05,
     "epsilon_decay": 0.99,
     "epsilon_decay_freq": 1000,
-    "learning_rate": 0.001,
+    "learning_rate": 0.00025,
     "num_episodes": 1000,
     "batch_size": 32
 }
