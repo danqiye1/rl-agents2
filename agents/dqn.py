@@ -1,6 +1,5 @@
 import cv2
 import torch
-import pickle
 import wandb
 import time
 import numpy as np
@@ -200,7 +199,7 @@ class DQNAgent:
                 # Update target model according to update freq
                 if self.num_frames % update_freq == 0:
                     self.target_model.load_state_dict(self.policy_model.state_dict())
-                    self.save(f"checkpoints/step-{self.num_frames}")
+                    self.save(f"checkpoints/step-{self.num_frames}.pt")
                     tqdm.write("Model saved!")
             
             self.rewards.append(cum_reward)
@@ -211,20 +210,24 @@ class DQNAgent:
             avg_reward = sum(self.rewards) / len(self.rewards)
             avg_q = sum(self.max_q) / len(self.max_q)
 
-            # Output results
-            tqdm.write(
-                f"Avg Reward: {avg_reward}, \
-                Steps: {self.num_frames}, \
-                Avg Q: {avg_q: .3f}, \
-                Epsilon: {self.epsilon: .3f}")
-
             wandb.log({
                 "avg_reward": avg_reward,
                 "avg_Q": avg_q,
                 "epsilon": self.epsilon
             })
 
+            # Output results to terminal
+            tqdm.write(
+                f"Avg Reward: {avg_reward}, \
+                Steps: {self.num_frames}, \
+                Avg Q: {avg_q: .3f}, \
+                Epsilon: {self.epsilon: .3f}")
+
             done = False
+
+        # Training complete. Do a final save
+        self.save("checkpoints/final-model.pt")
+        wandb.save("checkpoints/final-model.pt")
 
     def eval_model(self, render=True):
         """ Evaluate the target model """
@@ -268,26 +271,28 @@ class DQNAgent:
         :param filename: Prefix of filename for saving the model and training meta-data.
         """
         # Save the current target model
-        torch.save(self.target_model.state_dict(), f"{filename}-model.pt")
-
-        # Save the performance of current target model
-        with open(f"{filename}-meta.pkl", "wb") as fp:
-            pickle.dump(self.rewards, fp)
-            pickle.dump(self.num_frames, fp)
-            pickle.dump(self.max_q, fp)
+        torch.save({
+            "rewards": self.rewards,
+            "num_frames": self.num_frames,
+            "max_q": self.max_q,
+            "epsilon": self.epsilon,
+            "model": self.target_model.state_dict() 
+        }, filename)
 
     def load(self, filename):
         """ Load the agent 
         
         :param filename: Prefix of filename for saving the model and training meta-data.
         """
-        # Load the target model
-        self.target_model.load_state_dict(torch.load(f"{filename}-model.pt"))
+        # Load the checkpoint
+        checkpoint = torch.load(filename)
+
+        # Load model
+        self.target_model.load_state_dict(checkpoint["model"])
         self.policy_model.load_state_dict(self.target_model.state_dict())
 
-        # Load the training results
-        with open(f"{filename}-meta.pkl", "rb") as fp:
-            self.rewards = pickle.load(fp)
-            self.num_frames = pickle.load(fp)
-
-            self.episodes = len(self.rewards)
+        # Load checkpoint metrics
+        self.rewards = checkpoint["rewards"]
+        self.max_q = checkpoint["max_q"]
+        self.epsilon = checkpoint["epsilon"]
+        self.num_frames = checkpoint["num_frames"]

@@ -10,9 +10,9 @@ parser = argparse.ArgumentParser(description="Atari Pong parameters")
 parser.add_argument("--train", dest="is_train_mode", action="store_true")
 parser.add_argument("--eval", dest="is_train_mode", action="store_false")
 parser.add_argument("--load-model", '-l', dest="model_path", default=None, type=str)
-parser.add_argument("--entity", '-e', dest="entity", default=None, type=str)
 parser.add_argument("--render", '-r', dest="render", action="store_true")
-parser.add_argument("--log-dir", dest="log_dir", default="runs/dqn-pong", type=str)
+parser.add_argument("--resume", dest="wandb_resume", action="store_true")
+
 args = parser.parse_args()
 
 parameters = {
@@ -29,8 +29,6 @@ parameters = {
     "num_episodes": 1000,
     "batch_size": 32
 }
-# Configure Weights and Biases
-wandb.init(project="dqn-pong", entity=args.entity, config=parameters)
 
 # Instantiate environment
 env = gym.make(parameters["env"])
@@ -61,6 +59,7 @@ if args.model_path:
 
 # Either train or evaluate the model
 if args.is_train_mode:
+    wandb.init(project="dqn-pong", entity=args.entity, config=parameters, resume=args.wandb_resume)
     agent.train(parameters["num_episodes"], parameters["batch_size"], parameters["update_steps"], args.render)
 else:
     agent.eval_model()
