@@ -1,5 +1,8 @@
 # Pong
 
+## Environment Name
+Use PongDeterministic-v4 to get the one with the skipped frames.
+
 ## Observation
 Type: ndarray
 dtype: uint8
