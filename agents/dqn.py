@@ -170,8 +170,8 @@ class DQNAgent:
                 # Sample an action and take one step
                 # action = self.select_action(obs, epsilon=self.epsilon_scheduler(self.num_frames))
                 action = self.select_action(obs, epsilon = self.epsilon)
-                action = np.asarray([action], dtype=np.int64)
                 obs_prime, reward, done, info = self.env.step(action)
+                action = np.asarray([action], dtype=np.int64)
 
                 obs_prime = self.preProcess(obs_prime)
                 obs_prime = np.stack((obs_prime, obs[0], obs[1], obs[2]))
@@ -248,8 +248,8 @@ class DQNAgent:
                 q_val = self.target_model(obs_tensor.to(self.device))
                 action = torch.argmax(q_val).item()
             
-            action = np.asanyarray([action], dtype=np.int64)
             obs_prime, reward, eval_done, _ = self.env.step(action)
+            action = np.asanyarray([action], dtype=np.int64)
             time.sleep(0.01)
             obs_prime = self.preProcess(obs_prime)
             obs = np.stack((obs_prime, obs[0], obs[1], obs[2]))
