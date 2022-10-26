@@ -12,6 +12,7 @@ parser.add_argument("--eval", dest="is_train_mode", action="store_false")
 parser.add_argument("--load-model", '-l', dest="model_path", default=None, type=str)
 parser.add_argument("--render", '-r', dest="render", action="store_true")
 parser.add_argument("--resume", dest="wandb_resume", action="store_true")
+parser.add_argument("--entity", type=str)
 
 args = parser.parse_args()
 
